@@ -7,8 +7,19 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  tz.initializeTimeZones();
+  tz.setLocalLocation(tz.local);
+
   runApp(const OffDayApp());
 }
 
@@ -52,6 +63,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    _initNotifications(); // ⚡ 初始化通知
     _init();
     Connectivity().onConnectivityChanged.listen((result) {
       final connected =
@@ -63,10 +75,86 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  // ---------- 本地通知初始化 ----------
+  Future<void> _initNotifications() async {
+    const AndroidInitializationSettings androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const DarwinInitializationSettings iosSettings =
+        DarwinInitializationSettings();
+    const InitializationSettings settings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+    await flutterLocalNotificationsPlugin.initialize(
+      settings,
+      onDidReceiveNotificationResponse: (details) {
+        print('用户点击通知: ${details.payload}');
+      },
+    );
+  }
+
+  // ---------- 显示通知 ----------
+  Future<void> showNotification(String title, String body) async {
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          'holiday_channel',
+          '假期提醒',
+          channelDescription: '假期星球通知',
+          importance: Importance.max,
+          priority: Priority.high,
+        );
+    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails();
+    const NotificationDetails platformDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await flutterLocalNotificationsPlugin.show(
+      0,
+      title,
+      body,
+      platformDetails,
+      payload: 'holiday_payload',
+    );
+  }
+
+  // ---------- 定时通知（前一天提醒） ----------
+  Future<void> scheduleHolidayNotification() async {
+    final scheduledTime = tz.TZDateTime(
+      tz.local,
+      holidayDate.year,
+      holidayDate.month,
+      holidayDate.day - 1,
+      9, // 早上9点提醒
+    );
+
+    if (scheduledTime.isBefore(tz.TZDateTime.now(tz.local))) return;
+
+    await flutterLocalNotificationsPlugin.zonedSchedule(
+      1,
+      '假期提醒',
+      '距离 $nextHolidayName 还有 1 天！',
+      scheduledTime,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'holiday_channel',
+          '假期提醒',
+          channelDescription: '假期星球通知',
+          importance: Importance.max,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(),
+      ),
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+    );
+  }
+
+  // ---------- 初始化 ----------
   Future<void> _init() async {
     try {
       final result = await Connectivity().checkConnectivity();
-      // 新版本返回 List<ConnectivityResult>
       isConnected =
           result.isNotEmpty && !result.contains(ConnectivityResult.none);
     } catch (e) {
@@ -119,6 +207,7 @@ class _HomePageState extends State<HomePage> {
         isLoading = false;
       });
       _startTick();
+      scheduleHolidayNotification(); // ⚡ 安排前一天提醒
     } catch (e) {
       setState(() {
         isLoading = false;
@@ -142,7 +231,6 @@ class _HomePageState extends State<HomePage> {
   void _updateDetailed() {
     final now = DateTime.now();
     final diff = holidayDate.difference(now);
-    // final d = diff.inDays;
     final h = diff.inHours % 24;
     final m = diff.inMinutes % 60;
     final s = diff.inSeconds % 60;
@@ -150,6 +238,11 @@ class _HomePageState extends State<HomePage> {
       detailed =
           '${h.toString().padLeft(2, '0')}时 ${m.toString().padLeft(2, '0')}分 ${s.toString().padLeft(2, '0')}秒';
     });
+
+    // ⚡ App运行时倒计时触发通知（可选）
+    if (diff.inHours == 24 && diff.inMinutes == 0 && diff.inSeconds == 0) {
+      showNotification('假期提醒', '距离 $nextHolidayName 还有 1 天！');
+    }
   }
 
   @override
@@ -225,7 +318,7 @@ class _HomePageState extends State<HomePage> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
                   children: [
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 28),
                     const Text(
                       '假期星球',
                       style: TextStyle(
