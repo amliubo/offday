@@ -1,11 +1,12 @@
 import 'dart:ui';
 import 'dart:async';
 import 'dart:convert';
+import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
-import 'package:intl/intl.dart';
+import 'package:offday/PageView/CarouselSlider.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
@@ -16,10 +17,8 @@ final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-
   tz.initializeTimeZones();
   tz.setLocalLocation(tz.local);
-
   runApp(const OffDayApp());
 }
 
@@ -49,7 +48,10 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _bgController;
+
   bool isLoading = true;
   String? error;
   bool isConnected = true;
@@ -63,11 +65,15 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _initNotifications(); // ⚡ 初始化通知
+    _bgController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 8),
+    )..repeat(reverse: true);
+
+    _initNotifications();
     _init();
     Connectivity().onConnectivityChanged.listen((result) {
-      final connected =
-          result.isNotEmpty && !result.contains(ConnectivityResult.none);
+      final connected = result != ConnectivityResult.none;
       if (mounted) {
         setState(() => isConnected = connected);
         if (connected && isLoading) _load();
@@ -75,7 +81,6 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  // ---------- 本地通知初始化 ----------
   Future<void> _initNotifications() async {
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -93,7 +98,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ---------- 显示通知 ----------
   Future<void> showNotification(String title, String body) async {
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
@@ -108,7 +112,6 @@ class _HomePageState extends State<HomePage> {
       android: androidDetails,
       iOS: iosDetails,
     );
-
     await flutterLocalNotificationsPlugin.show(
       0,
       title,
@@ -118,24 +121,21 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ---------- 定时通知（前一天提醒） ----------
   Future<void> scheduleHolidayNotification() async {
     final scheduledTime = tz.TZDateTime(
       tz.local,
       holidayDate.year,
       holidayDate.month,
       holidayDate.day - 1,
-      9, // 早上9点提醒
+      9,
     );
-
     if (scheduledTime.isBefore(tz.TZDateTime.now(tz.local))) return;
-
     await flutterLocalNotificationsPlugin.zonedSchedule(
       1,
       '假期提醒',
       '距离 $nextHolidayName 还有 1 天！',
       scheduledTime,
-      const NotificationDetails(
+      NotificationDetails(
         android: AndroidNotificationDetails(
           'holiday_channel',
           '假期提醒',
@@ -145,18 +145,14 @@ class _HomePageState extends State<HomePage> {
         ),
         iOS: DarwinNotificationDetails(),
       ),
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
   }
 
-  // ---------- 初始化 ----------
   Future<void> _init() async {
     try {
       final result = await Connectivity().checkConnectivity();
-      isConnected =
-          result.isNotEmpty && !result.contains(ConnectivityResult.none);
+      isConnected = result != ConnectivityResult.none;
     } catch (e) {
       isConnected = false;
     }
@@ -207,7 +203,7 @@ class _HomePageState extends State<HomePage> {
         isLoading = false;
       });
       _startTick();
-      scheduleHolidayNotification(); // ⚡ 安排前一天提醒
+      scheduleHolidayNotification();
     } catch (e) {
       setState(() {
         isLoading = false;
@@ -238,8 +234,6 @@ class _HomePageState extends State<HomePage> {
       detailed =
           '${h.toString().padLeft(2, '0')}时 ${m.toString().padLeft(2, '0')}分 ${s.toString().padLeft(2, '0')}秒';
     });
-
-    // ⚡ App运行时倒计时触发通知（可选）
     if (diff.inHours == 24 && diff.inMinutes == 0 && diff.inSeconds == 0) {
       showNotification('假期提醒', '距离 $nextHolidayName 还有 1 天！');
     }
@@ -248,6 +242,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _timer?.cancel();
+    _bgController.dispose();
     super.dispose();
   }
 
@@ -312,29 +307,24 @@ class _HomePageState extends State<HomePage> {
         decoration: BoxDecoration(gradient: bgGradient),
         child: Stack(
           children: [
-            const _StaticBlobs(),
+            AnimatedBuilder(
+              animation: _bgController,
+              builder: (_, __) {
+                return _DynamicBlobs(animationValue: _bgController.value);
+              },
+            ),
             SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 20,
+                ),
                 child: Column(
                   children: [
-                    const SizedBox(height: 28),
-                    const Text(
-                      '假期星球',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 36,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '下一次放松，不再遥远',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.7),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    // const SizedBox(height: 28),
+                    Container(
+                      width: double.infinity,
+                      child: HolidayMagazineView(),
                     ),
                     const SizedBox(height: 32),
                     _CountdownCard(
@@ -345,6 +335,9 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(height: 24),
                     _ExcuseCard(
                       text: excuse,
+                      onCopy: () {
+                        Clipboard.setData(ClipboardData(text: excuse));
+                      },
                       onChange: () {
                         setState(() {
                           const samples = [
@@ -353,21 +346,6 @@ class _HomePageState extends State<HomePage> {
                             '家里停水停电，需要在家处理。',
                             '朋友结婚，要去参加婚礼。',
                             '小孩发烧了，需要陪同就医。',
-                            '家里水管爆了，需要紧急维修。',
-                            '父母身体不舒服，需要陪同检查。',
-                            '家里装修，需要在家监工。',
-                            '车坏了，需要去修理厂。',
-                            '家里有亲戚来访，需要接待。',
-                            '身体有点感冒，想休息一天。',
-                            '家里网络故障，需要等维修人员。',
-                            '宠物生病了，需要带去宠物医院。',
-                            '家里有重要快递，需要在家签收。',
-                            '身体疲劳，想调整一下状态。',
-                            '家里有紧急文件需要处理。',
-                            '身体过敏，需要去医院检查。',
-                            '家里有老人需要照顾。',
-                            '身体有点不舒服，想在家休息。',
-                            '家里有突发情况需要处理。',
                           ];
                           final shuffled = List<String>.from(samples)
                             ..shuffle();
@@ -375,11 +353,11 @@ class _HomePageState extends State<HomePage> {
                         });
                       },
                     ),
-                    const Spacer(),
+                    const SizedBox(height: 20),
                     Text(
                       '© 2025 假期星球',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5),
+                        color: Colors.white.withOpacity(0.5),
                         fontSize: 11,
                       ),
                     ),
@@ -420,29 +398,19 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class _FullCover extends StatelessWidget {
-  final Gradient bg;
-  final Widget child;
-  const _FullCover({required this.bg, required this.child});
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(gradient: bg),
-      child: Center(child: child),
-    );
-  }
-}
+// 背景动态气泡
+class _DynamicBlobs extends StatelessWidget {
+  final double animationValue;
+  const _DynamicBlobs({required this.animationValue});
 
-class _StaticBlobs extends StatelessWidget {
-  const _StaticBlobs();
   @override
   Widget build(BuildContext context) {
     return IgnorePointer(
       child: Stack(
         children: [
           Positioned(
-            left: -60,
-            top: -80,
+            left: -60 + animationValue * 30,
+            top: -80 + animationValue * 20,
             child: Container(
               width: 320,
               height: 320,
@@ -455,8 +423,8 @@ class _StaticBlobs extends StatelessWidget {
             ),
           ),
           Positioned(
-            right: -40,
-            bottom: -60,
+            right: -40 - animationValue * 20,
+            bottom: -60 - animationValue * 10,
             child: Container(
               width: 260,
               height: 260,
@@ -468,16 +436,27 @@ class _StaticBlobs extends StatelessWidget {
               ),
             ),
           ),
-          // 轻量模糊遮罩弱化饱和度
           Positioned.fill(
             child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.25),
-              ),
+              decoration: BoxDecoration(color: Colors.black.withOpacity(0.25)),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+// Full cover loading/error
+class _FullCover extends StatelessWidget {
+  final Gradient bg;
+  final Widget child;
+  const _FullCover({required this.bg, required this.child});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(gradient: bg),
+      child: Center(child: child),
     );
   }
 }
@@ -494,32 +473,25 @@ class _CountdownCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(24),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black26,
-                blurRadius: 8,
-                offset: Offset(0, 4),
-              ),
-            ],
+            color: Colors.white.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white.withOpacity(0.15)),
           ),
           child: Column(
             children: [
               Text(
                 title,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  fontWeight: FontWeight.w600,
+                style: const TextStyle(
+                  color: Colors.white,
                   fontSize: 16,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 12),
@@ -528,13 +500,13 @@ class _CountdownCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   _GradientNumber('$days'),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.only(bottom: 12),
                     child: Text(
                       '天',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.8),
+                        color: Colors.white.withOpacity(0.7),
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
                       ),
@@ -542,23 +514,12 @@ class _CountdownCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  detailed,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
+              const SizedBox(height: 8),
+              Text(
+                detailed,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.6),
+                  fontSize: 14,
                 ),
               ),
             ],
@@ -576,19 +537,18 @@ class _GradientNumber extends StatelessWidget {
   Widget build(BuildContext context) {
     return ShaderMask(
       shaderCallback: (rect) => const LinearGradient(
-        colors: [Colors.white, Color(0xCCFFFFFF)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ).createShader(rect),
-      blendMode: BlendMode.srcIn,
+        colors: [Color(0xFFFFE57F), Color(0xFFFFC107)],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ).createShader(Rect.fromLTWH(0, 0, rect.width, rect.height)),
       child: Text(
         text,
         style: const TextStyle(
-          fontSize: 92,
-          fontWeight: FontWeight.w900,
-          height: 1.0,
+          fontSize: 64,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
           shadows: [
-            Shadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 6)),
+            Shadow(blurRadius: 12, color: Colors.black38, offset: Offset(0, 4)),
           ],
         ),
       ),
@@ -599,111 +559,64 @@ class _GradientNumber extends StatelessWidget {
 class _ExcuseCard extends StatelessWidget {
   final String text;
   final VoidCallback onChange;
-  const _ExcuseCard({required this.text, required this.onChange});
+  final VoidCallback onCopy;
+  const _ExcuseCard({
+    required this.text,
+    required this.onChange,
+    required this.onCopy,
+  });
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(20),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
         child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-            borderRadius: BorderRadius.circular(18),
+            color: Colors.white.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withOpacity(0.12)),
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.description,
-                    color: Colors.white.withValues(alpha: 0.8),
-                    size: 22,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '请假理由',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.9),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                    ),
-                  ),
-                ],
+              Text(
+                text,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.85),
+                  fontSize: 16,
+                ),
               ),
               const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  text,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    fontSize: 15,
-                    height: 1.4,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(
+                    child: FilledButton(
                       onPressed: onChange,
-                      style: OutlinedButton.styleFrom(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF6C63FF),
                         foregroundColor: Colors.white,
-                        side: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.3),
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: const Text(
-                        '再来一个',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
+                      child: const Text('再来一个'),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: FilledButton(
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: text));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('请假理由已复制到剪贴板'),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      },
+                      onPressed: onCopy,
                       style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF6C63FF),
+                        backgroundColor: Colors.white.withOpacity(0.15),
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: const Text(
-                        '复制理由',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
+                      child: const Text('复制理由'),
                     ),
                   ),
                 ],
@@ -717,17 +630,22 @@ class _ExcuseCard extends StatelessWidget {
 }
 
 class _LinkSmall extends StatelessWidget {
-  final String label;
+  final String text;
   final Uri url;
-  const _LinkSmall(this.label, this.url);
+  const _LinkSmall(this.text, this.url);
+
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => launchUrl(url, mode: LaunchMode.externalApplication),
+    return GestureDetector(
+      onTap: () async {
+        if (await canLaunchUrl(url)) {
+          await launchUrl(url);
+        }
+      },
       child: Text(
-        label,
+        text,
         style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.5),
+          color: Colors.white.withOpacity(0.5),
           fontSize: 11,
           decoration: TextDecoration.underline,
         ),
