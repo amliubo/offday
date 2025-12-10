@@ -115,7 +115,6 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // 背景切换动画：淡入淡出 + 缩放
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 800),
             transitionBuilder: (child, animation) {
@@ -135,7 +134,6 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
             ),
           ),
           Positioned(left: 0, right: 0, bottom: 0, child: _buildGlassCard()),
-          // PageView 捕获滑动手势
           PageView.builder(
             controller: _pageController,
             itemCount: widget.holidays.length,
@@ -212,7 +210,7 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
                         child: Text(
                           _formatCountdown(countdown!, isPast: isPast),
                           style: const TextStyle(
-                            fontSize: 15,
+                            fontSize: 14,
                             color: Colors.white70,
                             letterSpacing: 0.5,
                           ),
@@ -230,15 +228,17 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 6,
                   children: List.generate(widget.holidays.length, (index) {
+                    final bool selected = _currentIndex == index;
+
                     return Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      width: _currentIndex == index ? 12 : 8,
-                      height: _currentIndex == index ? 12 : 8,
+                      width: selected ? 12 : 8,
+                      height: selected ? 12 : 8,
                       decoration: BoxDecoration(
-                        color: _currentIndex == index
+                        color: selected
                             ? Colors.white
                             : Colors.white.withOpacity(0.4),
                         shape: BoxShape.circle,
