@@ -1,7 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../mock_data.dart';
+import '../../policy_webview_page.dart';
 
 class HolidayMagazinePage extends StatefulWidget {
   final List<HolidayMagazine> holidays;
@@ -92,16 +92,19 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
 
   Widget _buildProtocolLink(String text, String url) {
     return InkWell(
-      onTap: () async {
-        final uri = Uri.parse(url);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        }
+      onTap: () {
+        debugPrint("点击了 $text -> $url");
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PolicyWebViewPage(url: url, title: text),
+          ),
+        );
       },
       child: Text(
         text,
         style: TextStyle(
-          color: Colors.white.withOpacity(0.4),
+          color: Colors.white.withOpacity(0.8),
           fontSize: 12,
           decoration: TextDecoration.underline,
         ),
@@ -115,25 +118,7 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 800),
-            transitionBuilder: (child, animation) {
-              final fade = FadeTransition(opacity: animation, child: child);
-              final scale = ScaleTransition(
-                scale: Tween<double>(begin: 1.05, end: 1.0).animate(animation),
-                child: fade,
-              );
-              return scale;
-            },
-            child: Image.asset(
-              widget.holidays[_currentIndex].imageUrl,
-              key: ValueKey(_currentIndex),
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-            ),
-          ),
-          Positioned(left: 0, right: 0, bottom: 0, child: _buildGlassCard()),
+          // 背景滑动层
           PageView.builder(
             controller: _pageController,
             itemCount: widget.holidays.length,
@@ -142,9 +127,16 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
               _updateCountdown();
             },
             itemBuilder: (context, index) {
-              return const SizedBox.shrink(); // 背景已用 AnimatedSwitcher
+              return Image.asset(
+                widget.holidays[index].imageUrl,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+              );
             },
           ),
+          // 渐变透明卡片层
+          Positioned(left: 0, right: 0, bottom: 0, child: _buildGlassCard()),
         ],
       ),
     );
@@ -183,6 +175,7 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // 标题 + 倒计时
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -228,12 +221,12 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
                   ),
                 ),
                 const SizedBox(height: 18),
+                // 小圆点指示器
                 Wrap(
                   alignment: WrapAlignment.center,
                   spacing: 6,
                   children: List.generate(widget.holidays.length, (index) {
                     final bool selected = _currentIndex == index;
-
                     return Container(
                       width: selected ? 12 : 8,
                       height: selected ? 12 : 8,
@@ -247,18 +240,19 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
                   }),
                 ),
                 const SizedBox(height: 18),
+                // 协议链接
                 Align(
                   alignment: Alignment.bottomLeft,
                   child: Row(
                     children: [
                       _buildProtocolLink(
                         "隐私协议",
-                        "https://yourdomain.com/privacy",
+                        "https://amliubo.github.io/app-policies/OffDay-privacy.zh-Hans.html",
                       ),
                       const SizedBox(width: 12),
                       _buildProtocolLink(
                         "用户协议",
-                        "https://yourdomain.com/user-agreement",
+                        "https://amliubo.github.io/app-policies/OffDay-user-agreement.zh-Hans.html",
                       ),
                     ],
                   ),
