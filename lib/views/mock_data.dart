@@ -113,8 +113,7 @@ final List<HolidayMagazine> holidayMagazines = [
   HolidayMagazine(
     title: "母亲节",
     description: "温柔与力量的名字叫母亲",
-    // imageUrl: "assets/images/mothers_day.jpg",
-    imageUrl: "assets/images/spring_festival.jpg",
+    imageUrl: "assets/images/mothers_day.jpg",
     startDate: DateTime.parse("2026-05-10"),
     endDate: DateTime.parse("2026-05-10"),
   ),
@@ -123,8 +122,7 @@ final List<HolidayMagazine> holidayMagazines = [
   HolidayMagazine(
     title: "儿童节",
     description: "愿童心永在，欢笑不散",
-    // imageUrl: "assets/images/childrens_day.jpg",
-    imageUrl: "assets/images/spring_festival.jpg",
+    imageUrl: "assets/images/childrens_day.jpg",
     startDate: DateTime.parse("2026-06-01"),
     endDate: DateTime.parse("2026-06-01"),
   ),
@@ -142,8 +140,7 @@ final List<HolidayMagazine> holidayMagazines = [
   HolidayMagazine(
     title: "父亲节",
     description: "沉默而深沉的爱最动人",
-    // imageUrl: "assets/images/fathers_day.jpg",
-    imageUrl: "assets/images/spring_festival.jpg",
+    imageUrl: "assets/images/fathers_day.jpg",
     startDate: DateTime.parse("2026-06-21"),
     endDate: DateTime.parse("2026-06-21"),
   ),
@@ -152,8 +149,7 @@ final List<HolidayMagazine> holidayMagazines = [
   HolidayMagazine(
     title: "七夕节",
     description: "银河有期，与你相遇",
-    // imageUrl: "assets/images/qixi_festival.jpg",
-    imageUrl: "assets/images/spring_festival.jpg",
+    imageUrl: "assets/images/qixi_festival.jpg",
     startDate: DateTime.parse("2026-08-14"),
     endDate: DateTime.parse("2026-08-14"),
   ),
@@ -162,8 +158,7 @@ final List<HolidayMagazine> holidayMagazines = [
   HolidayMagazine(
     title: "教师节",
     description: "桃李不言，下自成蹊",
-    // imageUrl: "assets/images/teachers_day.jpg",
-    imageUrl: "assets/images/spring_festival.jpg",
+    imageUrl: "assets/images/teachers_day.jpg",
     startDate: DateTime.parse("2026-09-10"),
     endDate: DateTime.parse("2026-09-10"),
   ),
@@ -190,8 +185,7 @@ final List<HolidayMagazine> holidayMagazines = [
   HolidayMagazine(
     title: "万圣节",
     description: "不给糖就捣蛋！",
-    // imageUrl: "assets/images/halloween.jpg",
-    imageUrl: "assets/images/spring_festival.jpg",
+    imageUrl: "assets/images/halloween.jpg",
     startDate: DateTime.parse("2026-10-31"),
     endDate: DateTime.parse("2026-10-31"),
   ),
@@ -200,8 +194,7 @@ final List<HolidayMagazine> holidayMagazines = [
   HolidayMagazine(
     title: "感恩节",
     description: "心怀感激，温暖常在",
-    // imageUrl: "assets/images/thanksgiving.jpg",
-    imageUrl: "assets/images/spring_festival.jpg",
+    imageUrl: "assets/images/thanksgiving.jpg",
     startDate: DateTime.parse("2026-11-26"),
     endDate: DateTime.parse("2026-11-26"),
   ),

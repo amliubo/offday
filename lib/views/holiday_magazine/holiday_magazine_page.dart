@@ -1,7 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:auto_size_text/auto_size_text.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../mock_data.dart';
-import '../../policy_webview_page.dart';
 
 class HolidayMagazinePage extends StatefulWidget {
   final List<HolidayMagazine> holidays;
@@ -38,13 +39,13 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
   }
 
   DateTime _getHolidayEndWithTime(HolidayMagazine holiday) => DateTime(
-    holiday.endDate.year,
-    holiday.endDate.month,
-    holiday.endDate.day,
-    23,
-    59,
-    59,
-  );
+        holiday.endDate.year,
+        holiday.endDate.month,
+        holiday.endDate.day,
+        23,
+        59,
+        59,
+      );
 
   void _updateCountdown() {
     final holiday = widget.holidays[_currentIndex];
@@ -90,28 +91,6 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
     return "还有 $timeStr";
   }
 
-  Widget _buildProtocolLink(String text, String url) {
-    return InkWell(
-      onTap: () {
-        debugPrint("点击了 $text -> $url");
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => PolicyWebViewPage(url: url, title: text),
-          ),
-        );
-      },
-      child: Text(
-        text,
-        style: TextStyle(
-          color: Colors.white.withOpacity(0.8),
-          fontSize: 12,
-          decoration: TextDecoration.underline,
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -135,7 +114,6 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
               );
             },
           ),
-          // 渐变透明卡片层
           Positioned(left: 0, right: 0, bottom: 0, child: _buildGlassCard()),
         ],
       ),
@@ -157,21 +135,13 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
         ),
       ),
       child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.circular(24),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(28, 32, 28, 26),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.08),
-              border: Border(
-                top: BorderSide(
-                  color: Colors.white.withOpacity(0.15),
-                  width: 1.2,
-                ),
-              ),
-            ),
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.05)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -180,11 +150,13 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
-                      child: Text(
+                      child: AutoSizeText(
                         holiday.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.visible,
                         style: const TextStyle(
                           fontSize: 58,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w800,
                           color: Colors.white,
                           height: 1,
                         ),
@@ -203,7 +175,7 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
                         child: Text(
                           _formatCountdown(countdown!, isPast: isPast),
                           style: const TextStyle(
-                            fontSize: 14,
+                            fontSize: 10,
                             color: Colors.white70,
                             letterSpacing: 0.5,
                           ),
@@ -212,6 +184,7 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
                   ],
                 ),
                 const SizedBox(height: 18),
+                // 描述
                 Text(
                   holiday.description,
                   style: const TextStyle(
@@ -240,17 +213,17 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
                   }),
                 ),
                 const SizedBox(height: 18),
-                // 协议链接
+                // 协议链接弹窗
                 Align(
                   alignment: Alignment.bottomLeft,
                   child: Row(
                     children: [
-                      _buildProtocolLink(
+                      _buildProtocolLinkDialog(
                         "隐私协议",
                         "https://amliubo.github.io/app-policies/OffDay-privacy.zh-Hans.html",
                       ),
                       const SizedBox(width: 12),
-                      _buildProtocolLink(
+                      _buildProtocolLinkDialog(
                         "用户协议",
                         "https://amliubo.github.io/app-policies/OffDay-user-agreement.zh-Hans.html",
                       ),
@@ -262,6 +235,77 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildProtocolLinkDialog(String text, String url) {
+    return InkWell(
+      onTap: () {
+        _showWebViewDialog(text, url);
+      },
+      child: Text(
+        text,
+        style: TextStyle(
+          color: Colors.white.withOpacity(0.4),
+          fontSize: 12,
+          decoration: TextDecoration.none,
+        ),
+      ),
+    );
+  }
+
+  void _showWebViewDialog(String title, String url) {
+    final controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..loadRequest(Uri.parse(url));
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: "WebViewDialog",
+      pageBuilder: (context, anim1, anim2) {
+        return Center(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+              child: Container(
+                width: MediaQuery.of(context).size.width * 0.95,
+                height: MediaQuery.of(context).size.height * 0.85,
+                color: Colors.white,
+                child: Column(
+                  children: [
+                    // 顶部标题栏
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            title,
+                            style: const TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Expanded(child: WebViewWidget(controller: controller)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        return FadeTransition(opacity: anim1, child: child);
+      },
+      transitionDuration: const Duration(milliseconds: 200),
     );
   }
 }
