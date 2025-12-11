@@ -50,6 +50,6 @@
 		<string>_dartobservatory._tcp</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>App needs access to local network to detect connectivity.</string>
+	<string>用于检测本地网络连接。</string>
 </dict>
 </plist>

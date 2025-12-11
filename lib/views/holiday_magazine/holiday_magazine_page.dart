@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:auto_size_text/auto_size_text.dart';
@@ -16,13 +17,30 @@ class HolidayMagazinePage extends StatefulWidget {
 class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
   final PageController _pageController = PageController();
   int _currentIndex = 0;
+  int _prevIndex = 0;
   Map<String, int>? countdown;
+  Timer? _countdownTimer;
 
   @override
   void initState() {
     super.initState();
     _currentIndex = _findNearestHolidayIndex();
-    _updateCountdown();
+    _prevIndex = _currentIndex;
+    _startCountdown();
+
+    // 预缓存所有本地图片
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (var holiday in widget.holidays) {
+        precacheImage(AssetImage(holiday.imageUrl), context);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
   }
 
   int _findNearestHolidayIndex() {
@@ -39,32 +57,35 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
   }
 
   DateTime _getHolidayEndWithTime(HolidayMagazine holiday) => DateTime(
-        holiday.endDate.year,
-        holiday.endDate.month,
-        holiday.endDate.day,
-        23,
-        59,
-        59,
-      );
+    holiday.endDate.year,
+    holiday.endDate.month,
+    holiday.endDate.day,
+    23,
+    59,
+    59,
+  );
 
-  void _updateCountdown() {
-    final holiday = widget.holidays[_currentIndex];
-    final now = DateTime.now();
-    Duration diff;
-    bool isOngoing = false;
+  void _startCountdown() {
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
 
-    final holidayEnd = _getHolidayEndWithTime(holiday);
+      final holiday = widget.holidays[_currentIndex];
+      final now = DateTime.now();
+      Duration diff;
+      bool isOngoing = false;
 
-    if (now.isBefore(holiday.startDate)) {
-      diff = holiday.startDate.difference(now);
-    } else if (now.isAfter(holidayEnd)) {
-      diff = now.difference(holidayEnd);
-    } else {
-      isOngoing = true;
-      diff = holidayEnd.difference(now);
-    }
+      final holidayEnd = _getHolidayEndWithTime(holiday);
 
-    setState(() {
+      if (now.isBefore(holiday.startDate)) {
+        diff = holiday.startDate.difference(now);
+      } else if (now.isAfter(holidayEnd)) {
+        diff = now.difference(holidayEnd);
+      } else {
+        isOngoing = true;
+        diff = holidayEnd.difference(now);
+      }
+
       countdown = {
         'days': diff.inDays,
         'hours': diff.inHours % 24,
@@ -72,10 +93,7 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
         'seconds': diff.inSeconds % 60,
         'isOngoing': isOngoing ? 1 : 0,
       };
-    });
-
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) _updateCountdown();
+      setState(() {});
     });
   }
 
@@ -93,27 +111,38 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
 
   @override
   Widget build(BuildContext context) {
+    final holiday = widget.holidays[_currentIndex];
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // 背景滑动层
+          // 背景图片滑动 + 淡入动画
           PageView.builder(
             controller: _pageController,
             itemCount: widget.holidays.length,
             onPageChanged: (index) {
-              setState(() => _currentIndex = index);
-              _updateCountdown();
+              setState(() {
+                _prevIndex = _currentIndex;
+                _currentIndex = index;
+              });
             },
             itemBuilder: (context, index) {
-              return Image.asset(
-                widget.holidays[index].imageUrl,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                height: double.infinity,
+              return AnimatedSwitcher(
+                duration: const Duration(milliseconds: 500),
+                switchInCurve: Curves.easeIn,
+                switchOutCurve: Curves.easeOut,
+                child: Image.asset(
+                  widget.holidays[_currentIndex].imageUrl,
+                  key: ValueKey('bg_${_currentIndex}'),
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                ),
               );
             },
           ),
+          // 底部玻璃卡片
           Positioned(left: 0, right: 0, bottom: 0, child: _buildGlassCard()),
         ],
       ),
@@ -141,96 +170,123 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.05)),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 标题 + 倒计时
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: AutoSizeText(
-                        holiday.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.visible,
-                        style: const TextStyle(
-                          fontSize: 58,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          height: 1,
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.08)),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: constraints.maxHeight * 0.9,
+                  ),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // 标题 + 倒计时
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: AutoSizeText(
+                                holiday.title,
+                                maxLines: 2,
+                                minFontSize: 20,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 58,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                  height: 1,
+                                ),
+                              ),
+                            ),
+                            if (countdown != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  _formatCountdown(countdown!, isPast: isPast),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.white70,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
-                      ),
-                    ),
-                    if (countdown != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          _formatCountdown(countdown!, isPast: isPast),
+                        const SizedBox(height: 18),
+                        // 描述
+                        Text(
+                          holiday.description,
                           style: const TextStyle(
-                            fontSize: 10,
+                            fontSize: 26,
                             color: Colors.white70,
-                            letterSpacing: 0.5,
+                            height: 1.2,
                           ),
                         ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                // 描述
-                Text(
-                  holiday.description,
-                  style: const TextStyle(
-                    fontSize: 26,
-                    color: Colors.white70,
-                    height: 1,
+                        const SizedBox(height: 18),
+                        // 小圆点指示器
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          spacing: 6,
+                          children: List.generate(widget.holidays.length, (
+                            index,
+                          ) {
+                            final bool selected = _currentIndex == index;
+                            return AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              width: selected ? 12 : 8,
+                              height: selected ? 12 : 8,
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? Colors.white
+                                    : Colors.white.withOpacity(0.4),
+                                shape: BoxShape.circle,
+                              ),
+                            );
+                          }),
+                        ),
+                        const SizedBox(height: 18),
+                        // 协议链接
+                        Align(
+                          alignment: Alignment.bottomLeft,
+                          child: Row(
+                            children: [
+                              TextButton(
+                                onPressed: () => _showBottomSheetWebView(
+                                  "隐私协议",
+                                  "https://amliubo.github.io/app-policies/OffDay-privacy.zh-Hans.html",
+                                ),
+                                child: const Text(
+                                  "隐私协议",
+                                  style: TextStyle(color: Colors.white70),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              TextButton(
+                                onPressed: () => _showBottomSheetWebView(
+                                  "用户协议",
+                                  "https://amliubo.github.io/app-policies/OffDay-user-agreement.zh-Hans.html",
+                                ),
+                                child: const Text(
+                                  "用户协议",
+                                  style: TextStyle(color: Colors.white70),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 18),
-                // 小圆点指示器
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 6,
-                  children: List.generate(widget.holidays.length, (index) {
-                    final bool selected = _currentIndex == index;
-                    return Container(
-                      width: selected ? 12 : 8,
-                      height: selected ? 12 : 8,
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? Colors.white
-                            : Colors.white.withOpacity(0.4),
-                        shape: BoxShape.circle,
-                      ),
-                    );
-                  }),
-                ),
-                const SizedBox(height: 18),
-                // 协议链接弹窗
-                Align(
-                  alignment: Alignment.bottomLeft,
-                  child: Row(
-                    children: [
-                      _buildProtocolLinkDialog(
-                        "隐私协议",
-                        "https://amliubo.github.io/app-policies/OffDay-privacy.zh-Hans.html",
-                      ),
-                      const SizedBox(width: 12),
-                      _buildProtocolLinkDialog(
-                        "用户协议",
-                        "https://amliubo.github.io/app-policies/OffDay-user-agreement.zh-Hans.html",
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                );
+              },
             ),
           ),
         ),
@@ -238,62 +294,57 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
     );
   }
 
-  Widget _buildProtocolLinkDialog(String text, String url) {
-    return InkWell(
-      onTap: () {
-        _showWebViewDialog(text, url);
-      },
-      child: Text(
-        text,
-        style: TextStyle(
-          color: Colors.white.withOpacity(0.4),
-          fontSize: 12,
-          decoration: TextDecoration.none,
-        ),
-      ),
-    );
-  }
-
-  void _showWebViewDialog(String title, String url) {
+  void _showBottomSheetWebView(String title, String url) {
     final controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..loadRequest(Uri.parse(url));
 
-    showGeneralDialog(
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: true,
-      barrierLabel: "WebViewDialog",
-      pageBuilder: (context, anim1, anim2) {
-        return Center(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-              child: Container(
-                width: MediaQuery.of(context).size.width * 0.95,
-                height: MediaQuery.of(context).size.height * 0.85,
-                color: Colors.white,
+      isScrollControlled: true,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              color: Colors.black.withOpacity(0.35),
+              height: MediaQuery.of(context).size.height * 0.9,
+              child: SafeArea(
                 child: Column(
                   children: [
-                    // 顶部标题栏
+                    Container(
+                      margin: const EdgeInsets.symmetric(vertical: 10),
+                      width: 40,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.white54,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
                     Padding(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
                             title,
                             style: const TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold),
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.close, color: Colors.white),
+                            onPressed: () => Navigator.of(context).pop(),
                           ),
                         ],
                       ),
                     ),
-                    const Divider(height: 1),
+                    const SizedBox(height: 6),
                     Expanded(child: WebViewWidget(controller: controller)),
                   ],
                 ),
@@ -302,10 +353,6 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
           ),
         );
       },
-      transitionBuilder: (context, anim1, anim2, child) {
-        return FadeTransition(opacity: anim1, child: child);
-      },
-      transitionDuration: const Duration(milliseconds: 200),
     );
   }
 }
