@@ -26,6 +26,7 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
     super.initState();
     _currentIndex = _findNearestHolidayIndex();
     _prevIndex = _currentIndex;
+    _updateCountdown(); // 先初始化一次
     _startCountdown();
 
     // 预缓存所有本地图片
@@ -34,6 +35,32 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
         precacheImage(AssetImage(holiday.imageUrl), context);
       }
     });
+  }
+
+  void _updateCountdown() {
+    final holiday = widget.holidays[_currentIndex];
+    final now = DateTime.now();
+    Duration diff;
+    bool isOngoing = false;
+
+    final holidayEnd = _getHolidayEndWithTime(holiday);
+
+    if (now.isBefore(holiday.startDate)) {
+      diff = holiday.startDate.difference(now);
+    } else if (now.isAfter(holidayEnd)) {
+      diff = now.difference(holidayEnd);
+    } else {
+      isOngoing = true;
+      diff = holidayEnd.difference(now);
+    }
+
+    countdown = {
+      'days': diff.inDays,
+      'hours': diff.inHours % 24,
+      'minutes': diff.inMinutes % 60,
+      'seconds': diff.inSeconds % 60,
+      'isOngoing': isOngoing ? 1 : 0,
+    };
   }
 
   @override
@@ -69,30 +96,7 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
     _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-
-      final holiday = widget.holidays[_currentIndex];
-      final now = DateTime.now();
-      Duration diff;
-      bool isOngoing = false;
-
-      final holidayEnd = _getHolidayEndWithTime(holiday);
-
-      if (now.isBefore(holiday.startDate)) {
-        diff = holiday.startDate.difference(now);
-      } else if (now.isAfter(holidayEnd)) {
-        diff = now.difference(holidayEnd);
-      } else {
-        isOngoing = true;
-        diff = holidayEnd.difference(now);
-      }
-
-      countdown = {
-        'days': diff.inDays,
-        'hours': diff.inHours % 24,
-        'minutes': diff.inMinutes % 60,
-        'seconds': diff.inSeconds % 60,
-        'isOngoing': isOngoing ? 1 : 0,
-      };
+      _updateCountdown();
       setState(() {});
     });
   }
@@ -189,11 +193,10 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
                               child: AutoSizeText(
                                 holiday.title,
                                 maxLines: 2,
-                                minFontSize: 20,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  fontSize: 58,
-                                  fontWeight: FontWeight.w800,
+                                  fontSize: 68,
+                                  fontWeight: FontWeight.w600,
                                   color: Colors.white,
                                   height: 1,
                                 ),
@@ -212,7 +215,7 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
                                 child: Text(
                                   _formatCountdown(countdown!, isPast: isPast),
                                   style: const TextStyle(
-                                    fontSize: 10,
+                                    fontSize: 14,
                                     color: Colors.white70,
                                     letterSpacing: 0.5,
                                   ),
@@ -225,9 +228,9 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
                         Text(
                           holiday.description,
                           style: const TextStyle(
-                            fontSize: 26,
+                            fontSize: 32,
                             color: Colors.white70,
-                            height: 1.2,
+                            height: 1.35,
                           ),
                         ),
                         const SizedBox(height: 18),
@@ -252,11 +255,12 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
                             );
                           }),
                         ),
-                        const SizedBox(height: 18),
+                        // const SizedBox(height: 18),
                         // 协议链接
                         Align(
                           alignment: Alignment.bottomLeft,
                           child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               TextButton(
                                 onPressed: () => _showBottomSheetWebView(
@@ -265,10 +269,12 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
                                 ),
                                 child: const Text(
                                   "隐私协议",
-                                  style: TextStyle(color: Colors.white70),
+                                  style: TextStyle(
+                                    color: Color.fromRGBO(255, 255, 255, 0.35),
+                                  ),
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              // const SizedBox(width: 12),
                               TextButton(
                                 onPressed: () => _showBottomSheetWebView(
                                   "用户协议",
@@ -276,7 +282,9 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
                                 ),
                                 child: const Text(
                                   "用户协议",
-                                  style: TextStyle(color: Colors.white70),
+                                  style: TextStyle(
+                                    color: Color.fromRGBO(255, 255, 255, 0.35),
+                                  ),
                                 ),
                               ),
                             ],
