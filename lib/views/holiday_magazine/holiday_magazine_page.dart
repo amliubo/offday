@@ -195,7 +195,7 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  fontSize: 68,
+                                  fontSize: 52,
                                   fontWeight: FontWeight.w600,
                                   color: Colors.white,
                                   height: 1,
@@ -215,7 +215,7 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
                                 child: Text(
                                   _formatCountdown(countdown!, isPast: isPast),
                                   style: const TextStyle(
-                                    fontSize: 14,
+                                    fontSize: 12,
                                     color: Colors.white70,
                                     letterSpacing: 0.5,
                                   ),
@@ -255,7 +255,7 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
                             );
                           }),
                         ),
-                        // const SizedBox(height: 18),
+                        const SizedBox(height: 18),
                         // 协议链接
                         Align(
                           alignment: Alignment.bottomLeft,
@@ -274,7 +274,7 @@ class _HolidayMagazinePageState extends State<HolidayMagazinePage> {
                                   ),
                                 ),
                               ),
-                              // const SizedBox(width: 12),
+                              const SizedBox(width: 1),
                               TextButton(
                                 onPressed: () => _showBottomSheetWebView(
                                   "用户协议",
